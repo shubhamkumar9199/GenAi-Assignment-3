@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import os
+
+os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
+
 import sys
 
 try:
@@ -9,7 +13,6 @@ try:
 except ImportError:
     pass
 
-import os
 import re
 
 import streamlit as st
