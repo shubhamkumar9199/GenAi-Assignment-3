@@ -1,18 +1,6 @@
 from __future__ import annotations
 
 import os
-
-os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
-
-import sys
-
-try:
-    import pysqlite3
-
-    sys.modules["sqlite3"] = pysqlite3
-except ImportError:
-    pass
-
 import re
 
 import streamlit as st
@@ -136,7 +124,7 @@ def main() -> None:
 
         st.divider()
         st.caption(
-            "Stack: Streamlit · pypdf · sentence-transformers · ChromaDB · Groq "
+            "Stack: Streamlit · pypdf · sentence-transformers · FAISS · Groq "
             f"({LLM_MODEL_NAME})"
         )
 

@@ -13,7 +13,7 @@ from the document itself and cites the page it came from.
 - 📄 Upload any PDF or `.txt` file
 - 🧩 Recursive paragraph-aware **chunking** with sliding-window overlap
 - 🧠 Local **sentence-transformers** embeddings — no embedding API cost
-- 🗂 In-process **ChromaDB** vector index — no external DB to host
+- 🗂 In-process **FAISS** vector index — no external DB to host
 - ⚡ **Groq**-hosted Llama 3.3 70B for fast, free generation
 - 🔎 Page-level **citations** plus a "show retrieved chunks" panel for transparency
 - 🛡 System prompt forces the LLM to refuse questions it cannot ground in the doc
@@ -29,7 +29,7 @@ from the document itself and cites the page it came from.
 └────────────┘                                                │ chunks
                                                               ▼
 ┌──────────────────┐  hits   ┌──────────────────┐    ┌──────────────────┐
-│    Groq LLM      │◀────────│   ChromaDB       │◀───│ sentence-trans-  │
+│    Groq LLM      │◀────────│   FAISS       │◀───│ sentence-trans-  │
 │ (llama-3.3-70b)  │  query  │ cosine top-k     │    │ formers MiniLM   │
 └────────┬─────────┘         └──────────────────┘    └──────────────────┘
          │ grounded answer + page citations
@@ -44,7 +44,7 @@ from the document itself and cites the page it came from.
 | Ingest | Extract page-aware text from the upload | `rag_pipeline.load_document` |
 | Chunk | Recursive paragraph + sentence + word splitter with overlap | `rag_pipeline.chunk_pages` |
 | Embed | Encode each chunk with `all-MiniLM-L6-v2` (384-dim) | `rag_pipeline.get_embedder` |
-| Store | Cosine-distance ChromaDB collection in-process | `rag_pipeline.build_collection` |
+| Store | Cosine-distance FAISS collection in-process | `rag_pipeline.build_collection` |
 | Retrieve | Top-K nearest chunks for the user query | `rag_pipeline.retrieve` |
 | Generate | Groq Llama 3.3 70B prompted with retrieved context only | `rag_pipeline.generate_answer` |
 
@@ -94,7 +94,7 @@ A/B different settings on the same document.
 | PDF parsing | pypdf | Pure-Python, no system deps |
 | Chunking | Custom (this repo) | Page-aware, fully documented |
 | Embeddings | `sentence-transformers/all-MiniLM-L6-v2` | Free, local, fast (384 dims) |
-| Vector DB | ChromaDB (ephemeral, in-process) | Zero-ops, no server to host |
+| Vector DB | FAISS (`IndexFlatIP`, in-process) | Meta's vector search lib, zero-ops, no protobuf headache |
 | LLM | Groq Llama 3.3 70B Versatile | Free tier, very fast inference |
 
 ---

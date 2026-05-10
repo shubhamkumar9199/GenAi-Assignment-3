@@ -1,23 +1,20 @@
 from __future__ import annotations
 
-import os
-
-os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
-
 import io
 import re
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterable
 
-import chromadb
-from chromadb.config import Settings
+import faiss
+import numpy as np
 from groq import Groq
 from pypdf import PdfReader
 from sentence_transformers import SentenceTransformer
 
 
 EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+EMBED_DIM = 384
 LLM_MODEL_NAME = "llama-3.3-70b-versatile"
 DEFAULT_CHUNK_SIZE = 900
 DEFAULT_CHUNK_OVERLAP = 150
@@ -30,6 +27,12 @@ class Chunk:
     page: int
     chunk_id: str
     source: str
+
+
+@dataclass
+class VectorIndex:
+    index: faiss.Index
+    chunks: list[Chunk] = field(default_factory=list)
 
 
 def load_document(file_bytes: bytes, filename: str) -> list[tuple[int, str]]:
@@ -148,45 +151,39 @@ def get_embedder() -> SentenceTransformer:
     return _embedder
 
 
-def build_collection(chunks: list[Chunk], collection_name: str) -> chromadb.Collection:
+def build_collection(chunks: list[Chunk], collection_name: str = "doc") -> VectorIndex:
     if not chunks:
         raise ValueError("No chunks to index — the document appears empty.")
 
-    client = chromadb.EphemeralClient(Settings(anonymized_telemetry=False))
-    try:
-        client.delete_collection(collection_name)
-    except Exception:
-        pass
-    collection = client.create_collection(
-        name=collection_name,
-        metadata={"hnsw:space": "cosine"},
-    )
-
     embedder = get_embedder()
     texts = [c.text for c in chunks]
-    embeddings = embedder.encode(texts, batch_size=32, show_progress_bar=False).tolist()
+    embeddings = embedder.encode(
+        texts, batch_size=32, show_progress_bar=False
+    ).astype(np.float32)
+    faiss.normalize_L2(embeddings)
 
-    collection.add(
-        ids=[c.chunk_id for c in chunks],
-        documents=texts,
-        embeddings=embeddings,
-        metadatas=[{"page": c.page, "source": c.source} for c in chunks],
-    )
-    return collection
+    index = faiss.IndexFlatIP(EMBED_DIM)
+    index.add(embeddings)
+    return VectorIndex(index=index, chunks=list(chunks))
 
 
-def retrieve(collection: chromadb.Collection, query: str, top_k: int = DEFAULT_TOP_K) -> list[dict]:
+def retrieve(store: VectorIndex, query: str, top_k: int = DEFAULT_TOP_K) -> list[dict]:
     embedder = get_embedder()
-    query_vec = embedder.encode([query]).tolist()
-    res = collection.query(query_embeddings=query_vec, n_results=top_k)
+    q = embedder.encode([query]).astype(np.float32)
+    faiss.normalize_L2(q)
+    k = min(top_k, len(store.chunks))
+    scores, idxs = store.index.search(q, k)
     hits = []
-    for doc, meta, dist in zip(res["documents"][0], res["metadatas"][0], res["distances"][0]):
+    for i, score in zip(idxs[0], scores[0]):
+        if i < 0 or i >= len(store.chunks):
+            continue
+        c = store.chunks[i]
         hits.append(
             {
-                "text": doc,
-                "page": meta.get("page"),
-                "source": meta.get("source"),
-                "score": 1 - dist,
+                "text": c.text,
+                "page": c.page,
+                "source": c.source,
+                "score": float(score),
             }
         )
     return hits
