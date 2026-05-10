@@ -4,7 +4,7 @@ A lightweight, fully open-source clone of Google NotebookLM. Upload any PDF or
 text file, and have a grounded conversation with it — every answer is built
 from the document itself and cites the page it came from.
 
-> Built for **GenAI Assignment 3** (Scaler).
+> Built for **GenAI Assignment 3**.
 
 ---
 
