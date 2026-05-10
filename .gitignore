@@ -15,6 +15,7 @@ chroma/
 *.pdf
 *.txt
 !requirements.txt
+!runtime.txt
 !.env.example
 
 shubham.java
